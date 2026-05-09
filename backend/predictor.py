@@ -3,6 +3,7 @@ import json
 import keras
 import joblib
 import numpy as np
+import pandas as pd
 from pathlib import Path
 
 # File path constants
@@ -80,15 +81,12 @@ def compute_rolling_features(current_session: dict, history: list[dict]) -> dict
 # Main predict function
 def predict(features: dict) -> dict:
     ordered_values = [features.get(col) for col in FEATURE_COLUMNS]
-    if not ordered_values:
-        raise ValueError(
-            "No feature values could be extracted — check FEATURE_COLUMNS and input dict"
-        )
+    if all(v is None for v in ordered_values):
+        raise ValueError("All feature values are None — nothing to predict on")
 
-    input_array = np.array(ordered_values).reshape(1, -1)
-
-    imputed_data = imputer.transform(input_array)
-    scaled_data = scaler.transform(imputed_data)
+    input_df = pd.DataFrame([ordered_values], columns=FEATURE_COLUMNS)
+    imputed_data = imputer.transform(input_df)
+    scaled_data = scaler.transform(pd.DataFrame(imputed_data, columns=FEATURE_COLUMNS))
     scaled_flat = scaled_data[0]  # 1D array of scaled values
     top_indices = np.argsort(np.abs(scaled_flat))[-3:][::-1]
     top_risk_features = [FEATURE_COLUMNS[i] for i in top_indices]

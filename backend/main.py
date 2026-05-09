@@ -67,7 +67,7 @@ def get_athlete_id(athlete_id: int) -> AthleteOverview:
     if df.empty:
         raise HTTPException(status_code=404, detail=f"Athlete {athlete_id} not found")
 
-    row = df.iloc[0]
+    row = df.sort_values("session_id").iloc[-1]
     result = AthleteOverview(
         athlete_id=row["athlete_id"],
         sport_type=row["sport_type"],
@@ -112,7 +112,7 @@ def post_predict(request: PredictionRequest) -> PredictionResponse:
     rolling = compute_rolling_features(session_dict, history_dict)
     session_dict.update(rolling)
 
-    session_dict["gender"] = 1 if session_dict["gender"] == "Male" else 0
+    session_dict["gender"] = 0 if session_dict["gender"] == "Male" else 1
     sport = session_dict.pop("sport_type")  # remove the string
     session_dict["sport_type_Other"] = 1 if sport == "Other" else 0
     session_dict["sport_type_Soccer"] = 1 if sport == "Soccer" else 0
