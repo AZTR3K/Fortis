@@ -89,6 +89,9 @@ def predict(features: dict) -> dict:
 
     imputed_data = imputer.transform(input_array)
     scaled_data = scaler.transform(imputed_data)
+    scaled_flat = scaled_data[0]  # 1D array of scaled values
+    top_indices = np.argsort(np.abs(scaled_flat))[-3:][::-1]
+    top_risk_features = [FEATURE_COLUMNS[i] for i in top_indices]
 
     proba = model.predict(scaled_data, verbose=0)
     if proba.shape[0] == 0:
@@ -103,4 +106,5 @@ def predict(features: dict) -> dict:
         "risk_label": CLASSES[str(risk_class)],
         "confidence": confidence_dict,
         "acwr": features.get("acwr", 0.0),
+        "top_risk_features": top_risk_features,
     }
