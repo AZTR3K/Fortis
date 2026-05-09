@@ -461,7 +461,7 @@ timeline chart on the athlete profile page.
 
 ```bash
 # Clone the repo
-git clone <https://github.com/AZTR3K/Fortis>
+git clone https://github.com/AZTR3K/Fortis
 cd fortis
 
 # Install Python dependencies
