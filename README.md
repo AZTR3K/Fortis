@@ -475,7 +475,6 @@ uv run jupyter lab
 ```
 
 Run notebooks in order: 01 → 02 → 03.
-Note: 03_model.ipynb must be run using the Sem-6 .ai kernel for GPU support.
 
 ### Backend Setup
 
