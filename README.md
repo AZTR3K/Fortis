@@ -514,7 +514,7 @@ model_schema.json
 **Run time:** ~5 minutes (KNN imputation is the slow step)
 
 ### 03_model.ipynb — ANN Design, Training & Evaluation
-**Kernel:** Sem-6 .ai (GPU)
+**Kernel:** FORTIS (3.12)
 **Purpose:** Build, train, evaluate, and save the FORTIS ANN.
 **Key outputs:** fortis_ann.keras, evaluation metrics, baseline comparisons.
 **Run time:** ~10–20 minutes with GPU
