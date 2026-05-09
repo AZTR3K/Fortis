@@ -16,4 +16,9 @@ dependencies = [
     "seaborn>=0.13.2",
     "tensorflow>=2.21.0",
 ]
-lint.ignore = ["E501"]
+
+[tool.ruff]
+line-length = 100000
+[tool.ruff.lint]
+select = ["I"]
+ignore = ["E501"]
