@@ -16,3 +16,4 @@ dependencies = [
     "seaborn>=0.13.2",
     "tensorflow>=2.21.0",
 ]
+lint.ignore = ["E501"]
