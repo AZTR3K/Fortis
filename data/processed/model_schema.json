@@ -39,8 +39,7 @@
   "n_features": 35,
   "classes": {
     "0": "Healthy",
-    "1": "Low Risk",
-    "2": "Injured"
+    "1": "Injured"
   },
   "rolling_features": [
     "training_load_roll3",
