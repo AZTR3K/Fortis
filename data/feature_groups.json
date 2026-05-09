@@ -1,0 +1,43 @@
+{
+  "physiological": [
+    "heart_rate",
+    "body_temperature",
+    "hydration_level",
+    "sleep_quality",
+    "recovery_score",
+    "stress_level"
+  ],
+  "biomechanical": [
+    "muscle_activity",
+    "joint_angles",
+    "gait_speed",
+    "cadence",
+    "step_count",
+    "jump_height",
+    "ground_reaction_force",
+    "range_of_motion"
+  ],
+  "environmental": [
+    "ambient_temperature",
+    "humidity",
+    "altitude",
+    "playing_surface"
+  ],
+  "workload": [
+    "training_intensity",
+    "training_duration",
+    "training_load",
+    "fatigue_index"
+  ],
+  "athlete_profile": [
+    "age",
+    "bmi"
+  ],
+  "target": "injury_occurred",
+  "metadata": [
+    "athlete_id",
+    "session_id",
+    "sport_type",
+    "gender"
+  ]
+}
