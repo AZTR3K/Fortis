@@ -1,0 +1,21 @@
+# Logs
+logs
+*.log
+*-debug.log*
+*-error.log*
+
+# Dependencies
+node_modules/
+dist/
+dist-ssr/
+
+# Environments
+.env
+.env.*
+*.local
+
+# IDEs & OS
+.vscode/
+.idea/
+.DS_Store
+*.sw?
