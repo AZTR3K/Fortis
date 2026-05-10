@@ -43,18 +43,20 @@ export default function Predict() {
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    getAthleteHistory(id).then((data) => {
-      setHistory(data);
-      if (data.length > 0) {
-        const last = data[data.length - 1];
-        setFormData((prev) => ({
-          ...prev,
-          training_load: last.training_load.toFixed(1),
-          fatigue_index: last.fatigue_index.toFixed(1),
-          recovery_score: last.recovery_score.toFixed(1),
-        }));
-      }
-    });
+    getAthleteHistory(id)
+      .then((data) => {
+        setHistory(data);
+        if (data.length > 0) {
+          const last = data[data.length - 1];
+          setFormData((prev) => ({
+            ...prev,
+            training_load: last.training_load.toFixed(1),
+            fatigue_index: last.fatigue_index.toFixed(1),
+            recovery_score: last.recovery_score.toFixed(1),
+          }));
+        }
+      })
+      .catch(() => {});
   }, [id]);
 
   function handleChange(e) {
@@ -78,10 +80,12 @@ export default function Predict() {
         gender: formData.gender,
       })),
     };
-    postPredict(payload).then((data) => {
-      setResult(data);
-      setLoading(false);
-    });
+    postPredict(payload)
+      .then((data) => {
+        setResult(data);
+        setLoading(false);
+      })
+      .catch(() => setLoading(false));
   }
 
   const confidence = result

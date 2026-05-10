@@ -17,33 +17,35 @@ export default function AthleteProfile() {
   const [prediction, setPrediction] = useState(null);
 
   useEffect(() => {
-    Promise.all([getAthlete(id), getAthleteHistory(id)]).then(([athleteData, historyData]) => {
-      setAthlete(athleteData);
-      setHistory(historyData);
-      setLoading(false);
+    Promise.all([getAthlete(id), getAthleteHistory(id)])
+      .then(([athleteData, historyData]) => {
+        setAthlete(athleteData);
+        setHistory(historyData);
+        setLoading(false);
 
-      if (historyData.length > 0) {
-        const last = historyData[historyData.length - 1];
-        postPredict({
-          athlete_id: parseInt(id),
-          session_data: {
-            training_load: last.training_load,
-            fatigue_index: last.fatigue_index,
-            recovery_score: last.recovery_score,
-            sport_type: athleteData.sport_type,
-            gender: athleteData.gender,
-            age: athleteData.age,
-          },
-          history: historyData.slice(-7).map((s) => ({
-            training_load: s.training_load,
-            fatigue_index: s.fatigue_index,
-            recovery_score: s.recovery_score,
-            sport_type: athleteData.sport_type,
-            gender: athleteData.gender,
-          })),
-        }).then(setPrediction);
-      }
-    });
+        if (historyData.length > 0) {
+          const last = historyData[historyData.length - 1];
+          postPredict({
+            athlete_id: parseInt(id),
+            session_data: {
+              training_load: last.training_load,
+              fatigue_index: last.fatigue_index,
+              recovery_score: last.recovery_score,
+              sport_type: athleteData.sport_type,
+              gender: athleteData.gender,
+              age: athleteData.age,
+            },
+            history: historyData.slice(-7).map((s) => ({
+              training_load: s.training_load,
+              fatigue_index: s.fatigue_index,
+              recovery_score: s.recovery_score,
+              sport_type: athleteData.sport_type,
+              gender: athleteData.gender,
+            })),
+          }).then(setPrediction);
+        }
+      })
+      .catch(() => setLoading(false));
   }, [id]);
 
   if (loading) return <Spinner />;

@@ -12,10 +12,12 @@ export default function Dashboard() {
   const [filterRisk, setFilterRisk] = useState("");
 
   useEffect(() => {
-    getAthletes().then((data) => {
-      setAthletes(data);
-      setLoading(false);
-    });
+    getAthletes()
+      .then((data) => {
+        setAthletes(data);
+        setLoading(false);
+      })
+      .catch(() => setLoading(false));
   }, []);
 
   const filtered = athletes

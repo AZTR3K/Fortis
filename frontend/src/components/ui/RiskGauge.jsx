@@ -1,4 +1,4 @@
-const RADIUS = 80;
+const RADIUS = 90;
 const CIRCUMFERENCE = Math.PI * RADIUS;
 
 const colorMap = {
