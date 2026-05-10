@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { getAthlete, getAthleteHistory } from "../api/client";
+import { getAthlete, getAthleteHistory, postPredict } from "../api/client";
 import Spinner from "../components/ui/Spinner";
 import RiskBadge from "../components/ui/RiskBadge";
 import StatCard from "../components/ui/StatCard";
@@ -14,12 +14,35 @@ export default function AthleteProfile() {
   const [athlete, setAthlete] = useState(null);
   const [history, setHistory] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [prediction, setPrediction] = useState(null);
 
   useEffect(() => {
     Promise.all([getAthlete(id), getAthleteHistory(id)]).then(([athleteData, historyData]) => {
       setAthlete(athleteData);
       setHistory(historyData);
       setLoading(false);
+
+      if (historyData.length > 0) {
+        const last = historyData[historyData.length - 1];
+        postPredict({
+          athlete_id: parseInt(id),
+          session_data: {
+            training_load: last.training_load,
+            fatigue_index: last.fatigue_index,
+            recovery_score: last.recovery_score,
+            sport_type: athleteData.sport_type,
+            gender: athleteData.gender,
+            age: athleteData.age,
+          },
+          history: historyData.slice(-7).map((s) => ({
+            training_load: s.training_load,
+            fatigue_index: s.fatigue_index,
+            recovery_score: s.recovery_score,
+            sport_type: athleteData.sport_type,
+            gender: athleteData.gender,
+          })),
+        }).then(setPrediction);
+      }
     });
   }, [id]);
 
@@ -94,11 +117,39 @@ export default function AthleteProfile() {
           >
             <p className="text-xs text-gray-500 uppercase tracking-wider mb-4">Latest Risk</p>
             <RiskGauge
-              confidence={athlete.latest_risk_class === 1 ? 0.7 : 0.3}
+              confidence={
+                prediction
+                  ? prediction.risk_class === 1
+                    ? prediction.confidence["Injured"]
+                    : prediction.confidence["Healthy"]
+                  : 0.3
+              }
               riskClass={athlete.latest_risk_class}
               label={athlete.latest_risk_class === 1 ? "Injury Risk" : "Low Risk"}
             />
           </div>
+
+          {prediction && (
+            <div
+              className="rounded-xl border p-4"
+              style={{ backgroundColor: "var(--bg-card)", borderColor: "var(--border)" }}
+            >
+              <p className="text-xs text-gray-500 uppercase tracking-wider mb-3">
+                Top Risk Factors
+              </p>
+              {prediction.top_risk_features.map((f, i) => (
+                <div key={f} className="flex items-center gap-3 mb-2">
+                  <div className="h-1.5 rounded-full bg-blue-500/30 flex-1">
+                    <div
+                      className="h-full rounded-full bg-blue-500"
+                      style={{ width: `${100 - i * 25}%` }}
+                    />
+                  </div>
+                  <span className="text-xs text-gray-400 w-40 text-right">{f}</span>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       </div>
     </div>
