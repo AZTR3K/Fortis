@@ -1,215 +1,294 @@
-# FORTIS — Deep Learning for Athlete Workload Management & Injury Forecasting
+# FORTIS
+### Deep Learning for Athlete Workload Management & Injury Forecasting
 
-> A professional-grade, full-stack AI system that predicts musculoskeletal injury risk
-> in athletes before it happens — combining multimodal wearable data, a deep ANN, and
-> a live clinical dashboard.
+> A professional-grade, full-stack AI system that predicts musculoskeletal injury risk in athletes before it happens — combining multimodal wearable sensor data, a binary ANN, a FastAPI inference server, and a premium React clinical dashboard.
 
 ---
 
 ## Table of Contents
 
-1. [Project Overview](#1-project-overview)
-2. [Dataset](#2-dataset)
-3. [Architecture](#3-architecture)
-4. [Tech Stack](#4-tech-stack)
-5. [Folder Structure](#5-folder-structure)
-6. [Key Design Decisions](#6-key-design-decisions)
-7. [ML Pipeline](#7-ml-pipeline)
-8. [API Reference](#8-api-reference)
-9. [Frontend](#9-frontend)
-10. [Setup & Running the Project](#10-setup--running-the-project)
-11. [Notebook Guide](#11-notebook-guide)
-12. [Presentation Story](#12-presentation-story)
+1. [Overview](#overview)
+2. [The Problem](#the-problem)
+3. [Dataset](#dataset)
+4. [Key Design Decisions](#key-design-decisions)
+5. [ML Pipeline](#ml-pipeline)
+6. [Model Architecture](#model-architecture)
+7. [Results](#results)
+8. [System Architecture](#system-architecture)
+9. [Tech Stack](#tech-stack)
+10. [Project Structure](#project-structure)
+11. [Setup & Running](#setup--running)
+12. [API Reference](#api-reference)
+13. [Frontend](#frontend)
+14. [Notebook Guide](#notebook-guide)
 
 ---
 
-## 1. Project Overview
+## Overview
 
-**FORTIS** (Latin: *strong, resilient*) is an early-warning injury prediction system
-designed for use by sports medical staff and performance coaches. By analyzing
-multimodal time-series data from wearable sensors — spanning physiology, biomechanics,
-environment, and training workload — FORTIS uses an Artificial Neural Network (ANN) to
-identify hidden patterns of fatigue and flag athletes at elevated injury risk before
-they step onto the pitch.
+**FORTIS** (Latin: *strong, resilient*) is an early-warning injury prediction system designed for use by sports medical staff and performance coaches. By analyzing multimodal time-series data from wearable sensors — spanning physiology, biomechanics, environment, and training workload — FORTIS uses an Artificial Neural Network to identify hidden patterns of fatigue and flag athletes at elevated injury risk before they step onto the pitch.
 
-### The Problem
+### What FORTIS Is
+
+| Layer | Description |
+|---|---|
+| **ML Model** | Binary ANN trained on 11,961 real sessions, achieving 88.2% recall on the Injured class |
+| **REST API** | FastAPI server serving live predictions with rolling feature computation at inference time |
+| **Dashboard** | React clinical dashboard — squad overview, athlete profiles, session timelines, live predictions |
+
+### What FORTIS Is Not
+
+FORTIS is a decision support tool, not a diagnostic system. Predictions are probabilistic signals to inform coaching and medical decisions — not clinical diagnoses.
+
+---
+
+## The Problem
 
 Non-contact musculoskeletal injuries in professional sports are largely driven by:
-- Cumulative fatigue and inadequate recovery
-- Spikes in training load relative to chronic baseline (ACWR > 1.5)
-- Poor sleep quality combined with high stress markers
-- Suboptimal workload periodization over multi-session windows
+
+- **Cumulative fatigue** — repeated high-load sessions without adequate recovery
+- **ACWR spikes** — acute workload exceeding chronic baseline (danger threshold: > 1.5)
+- **Poor recovery markers** — low sleep quality combined with elevated stress
+- **Reactive management** — injuries detected after they occur, not before
 
 Traditional monitoring is reactive. FORTIS is proactive.
 
-### The Product
-
-A full-stack clinical decision support tool with three layers:
-
-| Layer | What it does |
-|---|---|
-| **ML Model** | ANN trained on 15,420 sessions predicts 3-class injury risk |
-| **REST API** | FastAPI server serves predictions and athlete data |
-| **Dashboard** | React frontend shows squad overview, athlete profiles, live predictions |
-
-### Target Users
-
-Sports physicians, physiotherapists, and performance coaches managing professional
-or semi-professional squads.
-
 ---
 
-## 2. Dataset
+## Dataset
 
 **Source:** [Multimodal Sports Injury Prediction Dataset — Kaggle](https://www.kaggle.com/datasets/anjalibhegam/multimodal-sports-injury-dataset)
-
-**License:** CC BY-NC-SA 4.0 (non-commercial use)
-
-### Stats at a Glance
+**License:** CC BY-NC-SA 4.0 (non-commercial use only)
 
 | Property | Value |
 |---|---|
 | Total samples | 15,420 |
 | Athletes | 156 (68% Male, 32% Female) |
-| Sessions per athlete | ~99 (sequential, chronological) |
-| Sports | Soccer 35%, Basketball 25%, Track 20%, Other 20% |
-| Features | 22 sensor features + 7 metadata columns |
-| Target classes | 3 — Healthy (64%), Low Risk (21%), Injured (15%) |
-| Class imbalance ratio | 4.26:1 (Healthy:Injured) |
+| Sessions per athlete | ~99 sequential sessions |
+| Sports | Soccer 35% · Basketball 25% · Track 20% · Other 20% |
+| Sensor features | 22 across 4 modalities |
+| Original target classes | 3 — Healthy (64%) · Low Risk (21%) · Injured (15%) |
+| Final formulation | Binary — Healthy (85%) · Injured (15%) |
 | Missing data | ~3% across 6 columns |
 
 ### Feature Modalities
 
-**Physiological (6):** heart_rate, body_temperature, hydration_level, sleep_quality,
-recovery_score, stress_level
+```
+Physiological (6):   heart_rate · body_temperature · hydration_level
+                     sleep_quality · recovery_score · stress_level
 
-**Biomechanical (8):** muscle_activity, joint_angles, gait_speed, cadence, step_count,
-jump_height, ground_reaction_force, range_of_motion
+Biomechanical (8):   muscle_activity · joint_angles · gait_speed · cadence
+                     step_count · jump_height · ground_reaction_force · range_of_motion
 
-**Environmental (4):** ambient_temperature, humidity, altitude, playing_surface
+Environmental (4):   ambient_temperature · humidity · altitude · playing_surface
 
-**Workload (4):** training_intensity, training_duration, training_load, fatigue_index
+Workload (4):        training_intensity · training_duration · training_load · fatigue_index
 
-**Athlete Profile (2):** age, bmi
+Athlete Profile (2): age · bmi
+```
 
-### Target Variable
+### EDA Key Findings
 
-| Class | Label | Count | % |
-|---|---|---|---|
-| 0 | Healthy | 9,868 | 64.0% |
-| 1 | Low Risk | 3,238 | 21.0% |
-| 2 | Injured | 2,314 | 15.0% |
-
-### Key EDA Findings
-
-1. **Top predictors:** `recovery_score`, `sleep_quality`, and `fatigue_index` are the
-   strongest linear predictors of injury — by a wide margin over environmental features.
-2. **Environmental features are weak:** humidity, ambient_temperature, and altitude show
-   near-zero correlation with injury. They are retained but expected to contribute little.
-3. **ACWR is a strong signal:** The Acute:Chronic Workload Ratio (3-session load /
-   7-session baseline) visually precedes Class 2 injury events in longitudinal plots.
-4. **Injury clustering:** 34.71% of injuries occur in back-to-back sessions. Median gap
-   between injury events is 2 sessions — compounding risk is real.
-5. **100% of athletes** experienced at least one Class 2 injury event across 6 months.
-6. **Multicollinearity:** Strong correlation between training_load, training_duration,
-   and training_intensity. Regularization (Dropout + L2) applied in the ANN to handle.
-7. **Missing data is MAR:** Nulls are uniformly distributed across injury classes,
-   justifying KNN imputation (preserves local structure).
-8. **Class imbalance (4.26:1)** motivates SMOTE oversampling on the training set.
+1. **Top predictors:** `recovery_score`, `sleep_quality`, and `fatigue_index` dominate correlation rankings by a wide margin over environmental features
+2. **Environmental features are weak:** humidity, altitude, and ambient temperature show near-zero correlation with injury — retained but contribute little
+3. **ACWR precedes injury:** longitudinal plots show training_load spikes and recovery crashes 1–3 sessions before injury events — rolling features are essential
+4. **Injury clustering:** 34.71% of injuries occur in back-to-back sessions; median gap between events is 2 sessions
+5. **Missing data is MAR:** nulls uniformly distributed across injury classes — justifies KNN imputation
+6. **4.26:1 class imbalance** between Healthy and Injured requiring deliberate handling
 
 ---
 
-## 3. Architecture
+## Key Design Decisions
+
+### Decision 1 — Rolling Features over Static Sessions
+
+Static session values don't capture accumulated fatigue. A single high training_load session is less dangerous than three consecutive ones. FORTIS engineers 7 rolling features per session:
+
+- `training_load_roll3`, `training_load_roll7` — 3 and 7-session means
+- `fatigue_roll3`, `fatigue_roll7`
+- `recovery_roll3`, `recovery_roll7`
+- `acwr` = roll3 / roll7, clipped at 2.5 (validated sports science metric)
+
+### Decision 2 — Binary Reformulation (Critical)
+
+The original 3-class formulation (Healthy / Low Risk / Injured) was abandoned after confirming that **Low Risk has no predictive signal.**
+
+KDE plots across all 6 top predictors showed Healthy and Low Risk distributions as near-identical on every feature. No classifier — regardless of architecture, sampling strategy, or loss weighting — can reliably separate two classes that are indistinguishable in feature space.
+
+**Resolution:** Low Risk (class 1) collapsed into Healthy (class 0) via `{1: 0, 2: 1}`. Binary problem: 0 = Healthy, 1 = Injured.
+
+**Clinical justification:** Low Risk is an ambiguous transitional label. A binary model that reliably identifies Injured athletes (Recall: 0.882) is more actionable in a real sports medicine context than a 3-class model hedging across an indeterminate middle category.
+
+### Decision 3 — SMOTE Removed
+
+Initial SMOTE training produced 98.9% val_accuracy but test macro F1 of only 0.4965. The model learned synthetic interpolated distributions, not real class boundaries. SMOTE was removed entirely. Class imbalance is handled via `class_weight='balanced'` in `model.fit()` — keeping the training set on real data (11,961 samples).
+
+### Decision 4 — KNN Imputation
+
+Missing values (~3%) are uniformly distributed across classes (MAR). KNNImputer with `n_neighbors=5` preserves local feature structure. Always fit on training data only and transform both sets separately.
+
+### Decision 5 — StandardScaler over MinMaxScaler
+
+Dataset contains real outliers confirmed in EDA. MinMaxScaler uses range and is sensitive to outliers. StandardScaler uses mean and standard deviation — more robust for this dataset. ANNs require scaled inputs; StandardScaler is the correct choice here.
+
+### Decision 6 — Clinical Optimisation over Statistical Optimisation
+
+The ANN's macro F1 (0.70) trails Logistic Regression (0.72). This is a deliberate trade-off. `class_weight='balanced'` pushes the model toward maximising Injured recall at the cost of precision.
+
+**A false alarm = a rest day. A missed injury = weeks on the sideline.**
+
+In clinical deployment context, this is the correct direction.
+
+---
+
+## ML Pipeline
+
+The preprocessing order is non-negotiable. Any deviation introduces data leakage or incorrect results:
+
+```
+1.  Sort by [athlete_id, session_id]          ← chronological order required for rolling
+2.  Binary remap: {1→0, 2→1}                 ← before any feature engineering
+3.  Compute rolling features                  ← 7 new engineered columns
+4.  Drop sessions 1–3 per athlete             ← insufficient rolling history
+5.  One-hot encode sport_type (drop_first)    ← 3 dummy columns, Basketball is base
+6.  Encode gender: Male=0, Female=1
+7.  Define X and y, drop metadata columns
+8.  Train/test split: 80/20, stratified       ← fit nothing before this line
+9.  KNNImputer: fit on X_train, transform both
+10. StandardScaler: fit on X_train, transform both
+11. class_weight='balanced' in model.fit()    ← replaces SMOTE, applied at training time
+```
+
+**Final dimensions:**
+- X_train: (11,961 × 35) — 22 original + 7 rolling + 6 encoded
+- X_test:  (2,991 × 35)
+
+---
+
+## Model Architecture
+
+```
+Input (35 features)
+    │
+Dense(256, ReLU, L2=1e-4)
+BatchNormalization()
+Dropout(0.3)
+    │
+Dense(128, ReLU, L2=1e-4)
+BatchNormalization()
+Dropout(0.3)
+    │
+Dense(64, ReLU)
+Dropout(0.2)
+    │
+Dense(2, Softmax)
+```
+
+| Config | Value |
+|---|---|
+| Loss | Binary Crossentropy |
+| Optimizer | Adam (lr = 5e-4) |
+| Batch size | 256 |
+| Early stopping | patience=15, restore_best_weights=True |
+| LR decay | ReduceLROnPlateau factor=0.5, patience=7 |
+| Class weighting | balanced |
+| Trainable params | ~42,000 |
+| Saved format | `.keras` (Keras 3 native format) |
+
+---
+
+## Results
+
+| Model | Macro F1 | AUC-ROC | Injured Recall | Injured Precision |
+|---|---|---|---|---|
+| Logistic Regression | 0.7227 | 0.9039 | — | — |
+| Random Forest | 0.6793 | 0.8940 | — | — |
+| **FORTIS ANN** | **0.7018** | **0.8998** | **0.8820** | **0.5477** |
+
+The ANN's lower macro F1 relative to Logistic Regression is a deliberate trade-off. Class weighting pushed the model toward maximising Injured recall. AUC-ROC of 0.900 confirms strong discriminative ability. The headline metric for clinical use is **Injured Recall: 88.2%**.
+
+---
+
+## System Architecture
 
 ```
 Raw CSV Data
      │
      ▼
-┌─────────────────────────────┐
-│   02_preprocessing.ipynb    │
-│                             │
-│  Sort → Rolling Features    │
-│  → Encode → Split →         │
-│  KNN Impute → Scale →       │
-│  SMOTE                      │
-└────────────┬────────────────┘
-             │ saves artifacts
-             ▼
-┌─────────────────────────────┐
-│        /models/             │
-│  knn_imputer.joblib         │
-│  standard_scaler.joblib     │
-│  fortis_ann.keras           │
-│                             │
-│        /data/processed/     │
-│  processed_data.npz         │
-│  model_schema.json          │
-└────────────┬────────────────┘
-             │ loaded by
-             ▼
-┌─────────────────────────────┐
-│    FastAPI Backend          │
-│    backend/main.py          │
-│                             │
-│  POST /predict              │
-│  GET  /athletes             │
-│  GET  /athlete/{id}         │
-│  GET  /athlete/{id}/history │
-└────────────┬────────────────┘
-             │ HTTP / REST
-             ▼
-┌─────────────────────────────┐
-│    React Frontend           │
-│                             │
-│  Squad Dashboard            │
-│  Athlete Profile View       │
-│  Live Prediction Form       │
-└─────────────────────────────┘
+02_preprocessing.ipynb
+  Sort → Binary Remap → Rolling Features
+  → Encode → Split → KNN Impute
+  → StandardScale
+     │
+     ▼  saves artifacts
+┌──────────────────────────────────────┐
+│  models/                             │
+│    fortis_ann.keras                  │
+│    knn_imputer.joblib                │
+│    standard_scaler.joblib            │
+│  data/processed/                     │
+│    model_schema.json                 │
+│    processed_data.npz                │
+└──────────────┬───────────────────────┘
+               │ loaded at startup
+               ▼
+  FastAPI Backend (backend/)
+    predictor.py  — model loading, rolling feature computation, inference
+    schemas.py    — Pydantic request/response models
+    main.py       — routes, CORS, in-memory athlete store
+               │
+               │ HTTP / REST (proxied via Vite /api)
+               ▼
+  React Frontend (frontend/)
+    Dashboard      — squad overview, hero stats, athlete cards
+    AthleteProfile — session timeline, ACWR chart, risk gauge
+    Predict        — live prediction form with rolling history
 ```
 
 ---
 
-## 4. Tech Stack
+## Tech Stack
 
 ### Machine Learning
-| Tool | Purpose |
-|---|---|
-| Python 3.12 | Language |
-| pandas, numpy | Data manipulation |
-| scikit-learn | Preprocessing (KNNImputer, StandardScaler, metrics) |
-| imbalanced-learn | SMOTE oversampling |
-| TensorFlow / Keras | ANN model (trained on GPU via Sem-6 kernel) |
-| joblib | Artifact serialization |
+| Tool | Version | Purpose |
+|---|---|---|
+| Python | 3.12 | Language |
+| TensorFlow | 2.21.0 | ANN training and inference |
+| Keras | 3.14.0 | Model API (multi-backend) |
+| scikit-learn | 1.8.0 | Preprocessing, metrics, baselines |
+| imbalanced-learn | 0.14.1 | SMOTE (explored, removed) |
+| pandas | 3.0.2 | Data manipulation |
+| numpy | 2.4.4 | Array operations |
+| joblib | 1.5.3 | Artifact serialization |
 
 ### Backend
 | Tool | Purpose |
 |---|---|
 | FastAPI | REST API framework |
-| Pydantic | Request/response validation and schemas |
-| uvicorn | ASGI server |
-| joblib / numpy | Load model and preprocessing artifacts |
+| Pydantic v2 | Request/response validation |
+| Uvicorn | ASGI server |
+| pandas | In-memory athlete data store |
 
 ### Frontend
 | Tool | Purpose |
 |---|---|
 | React + Vite | UI framework and build tool |
-| Tailwind CSS | Styling |
-| Recharts | Time-series and risk charts |
-| Axios | HTTP client for API calls |
-| React Router | Page navigation |
+| Tailwind CSS v4 | Utility styling |
+| Recharts | Session timeline and ACWR charts |
+| Axios | HTTP client |
+| React Router v6 | Page navigation |
+| Lucide React | Icon system |
 
 ### Environment
 | Tool | Purpose |
 |---|---|
 | uv | Python package and environment management |
-| Jupyter Lab | Notebook environment |
-| FORTIS kernel | EDA and preprocessing notebooks (uv venv) |
-| Sem-6 .ai kernel | Model training notebook (GPU-enabled) |
-| Git | Version control |
+| Python 3.12 (pinned) | Runtime via `.python-version` |
+| FORTIS kernel | EDA + preprocessing notebooks | Model Training
 
 ---
 
-## 5. Folder Structure
+## Project Structure
 
 ```
 fortis/
@@ -218,249 +297,76 @@ fortis/
 │   ├── raw/
 │   │   └── multimodal_sports_injury_dataset.csv
 │   ├── processed/
-│   │   ├── processed_data.npz
-│   │   └── model_schema.json
-│   └── feature_groups.json
+│   │   ├── processed_data.npz          ← X_train, X_test, y_train, y_test
+│   │   ├── model_schema.json           ← feature columns, class labels
+│   │   ├── class_overlap_kde.png       ← EDA: justification for binary reformulation
+│   │   ├── confusion_matrix.png
+│   │   └── training_curves.png
+│   └── feature_groups.json             ← modality groupings (EDA reference)
 │
 ├── models/
-│   ├── knn_imputer.joblib
-│   ├── standard_scaler.joblib
-│   └── fortis_ann.keras
+│   ├── fortis_ann.keras                ← trained model (Keras 3 format)
+│   ├── knn_imputer.joblib              ← fitted KNNImputer
+│   └── standard_scaler.joblib          ← fitted StandardScaler
 │
 ├── notebooks/
-│   ├── 01_eda.ipynb
-│   ├── 02_preprocessing.ipynb
-│   └── 03_model.ipynb
+│   ├── 01_eda.ipynb                    ← FORTIS kernel
+│   ├── 02_preprocessing.ipynb          ← FORTIS kernel
+│   └── 03_model.ipynb                  ← FORTIS kernel
 │
 ├── backend/
-│   ├── main.py          ← FastAPI app and route definitions
-│   ├── schemas.py       ← Pydantic input/output models
-│   ├── predictor.py     ← Model loading and inference logic
+│   ├── main.py                         ← FastAPI app, routes, CORS, data store
+│   ├── schemas.py                      ← Pydantic models
+│   ├── predictor.py                    ← artifact loading, rolling features, inference
 │   └── requirements.txt
 │
 ├── frontend/
 │   ├── public/
 │   ├── src/
-│   │   ├── components/  ← Reusable UI components
-│   │   ├── pages/       ← Dashboard, AthleteProfile, Predict
-│   │   ├── api/         ← Axios API call functions
-│   │   └── App.jsx
+│   │   ├── api/
+│   │   │   └── client.js               ← axios instance, all API functions
+│   │   ├── components/
+│   │   │   ├── layout/
+│   │   │   │   ├── Shell.jsx
+│   │   │   │   └── Sidebar.jsx
+│   │   │   ├── ui/
+│   │   │   │   ├── RiskBadge.jsx
+│   │   │   │   ├── RiskGauge.jsx
+│   │   │   │   ├── StatCard.jsx
+│   │   │   │   └── Spinner.jsx
+│   │   │   └── charts/
+│   │   │       ├── SessionTimeline.jsx
+│   │   │       └── AcwrChart.jsx
+│   │   ├── pages/
+│   │   │   ├── Dashboard.jsx
+│   │   │   ├── AthleteProfile.jsx
+│   │   │   └── Predict.jsx
+│   │   ├── App.jsx
+│   │   ├── main.jsx
+│   │   └── index.css
 │   ├── package.json
 │   └── vite.config.js
 │
 ├── pyproject.toml
-├── .python-version      ← Pinned to 3.12 via uv
-├── .gitignore
-├── README.md            ← Setup and run instructions
-└── PROJECT.md           ← This file — full project direction
+├── .python-version                     ← pinned to 3.12
+├── uv.lock
+└── README.md
 ```
 
 ---
 
-## 6. Key Design Decisions
-
-### Why rolling features?
-Static session values don't capture accumulated fatigue. A single high training_load
-session is less dangerous than three consecutive ones. Rolling 3-session and 7-session
-windows encode this temporal context. The ACWR (roll3/roll7) is a validated sports
-science metric used in professional performance monitoring.
-
-### Why KNN Imputation over median?
-Missing values (~3%) are uniformly distributed across classes (Missing At Random).
-KNN imputation finds the 5 nearest neighbors in feature space and imputes from them,
-preserving local structure and correlations between features. Median imputation ignores
-these relationships entirely.
-
-### Why SMOTE over class_weight='balanced'?
-Both address class imbalance. SMOTE generates synthetic minority samples in feature
-space, giving the model more diverse examples to learn from. class_weight simply
-re-weights the loss function. For a 4.26:1 imbalance, SMOTE produces measurably better
-F1 on the minority class (Injured) which is the most clinically important class to
-predict correctly.
-
-### Why StandardScaler over MinMaxScaler?
-The dataset contains real outliers (confirmed in EDA — muscle_activity, step_count,
-ground_reaction_force). MinMaxScaler uses range (max - min) and is therefore highly
-sensitive to outliers. StandardScaler uses mean and standard deviation, which are more
-robust. ANNs require scaled inputs; StandardScaler is the standard choice for tabular
-data with outliers.
-
-### Why ANN over Random Forest / XGBoost?
-This is an AI course project — demonstrating deep learning is the requirement. However,
-baseline comparisons against Logistic Regression and Random Forest are run in notebook
-03 to demonstrate that the ANN meaningfully outperforms simpler approaches, justifying
-the architectural choice.
-
-### Preprocessing Order (critical)
-The exact order matters. Any deviation introduces data leakage or incorrect results:
-
-```
-1. Sort by [athlete_id, session_id]
-2. Compute rolling features (requires chronological order)
-3. Drop early sessions (session_id <= 3)
-4. Encode categoricals
-5. Define X and y, drop metadata columns
-6. Train/test split (stratified, 80/20)
-7. Fit KNNImputer on X_train → transform X_train and X_test
-8. Fit StandardScaler on X_train → transform X_train and X_test
-9. Apply SMOTE to X_train_scaled → produces X_train_sm, y_train_sm
-10. Save all artifacts
-```
-
-SMOTE is applied last and only to training data. Test data is never touched by SMOTE.
-Imputer and scaler are fit only on training data. This is non-negotiable.
-
----
-
-## 7. ML Pipeline
-
-### Model: Artificial Neural Network (Keras/TensorFlow)
-
-**Training kernel:** Sem-6 `.ai` Jupyter kernel (GPU-enabled, RTX 4060)
-
-**Input:** ~35 features (22 original + 7 engineered rolling features + encoded
-categoricals) after preprocessing
-
-**Output:** Softmax over 3 classes (Healthy / Low Risk / Injured)
-
-**Planned architecture:**
-```
-Input Layer  → [n_features]
-Dense        → 256 units, ReLU, L2 regularization
-BatchNorm    → stabilize activations
-Dropout      → 0.3
-Dense        → 128 units, ReLU, L2 regularization
-BatchNorm
-Dropout      → 0.3
-Dense        → 64 units, ReLU
-Dropout      → 0.2
-Output       → 3 units, Softmax
-```
-
-**Loss:** categorical_crossentropy
-**Optimizer:** Adam (lr=0.001, with ReduceLROnPlateau callback)
-**Early stopping:** patience=15, restore best weights
-**Evaluation metrics:** F1-macro, AUC-ROC (OvR), Confusion Matrix
-
-**Baselines for comparison:**
-- Logistic Regression
-- Random Forest (100 estimators)
-
-### Saved Artifacts
-
-| File | Contents | Used by |
-|---|---|---|
-| `knn_imputer.joblib` | Fitted KNNImputer (n_neighbors=5) | FastAPI predictor |
-| `standard_scaler.joblib` | Fitted StandardScaler | FastAPI predictor |
-| `fortis_ann.keras` | Trained Keras model weights + architecture | FastAPI predictor |
-| `processed_data.npz` | X_train, X_test, y_train, y_test arrays | Notebook 03 only |
-| `model_schema.json` | Feature column list, class labels, rolling feature names | FastAPI + Frontend |
-
----
-
-## 8. API Reference
-
-**Base URL:** `http://localhost:8000`
-
-### Endpoints
-
-#### `POST /predict`
-Submit a new session's sensor readings for a specific athlete and receive a risk
-prediction with confidence scores.
-
-**Request body:**
-```json
-{
-  "athlete_id": 1,
-  "session_data": {
-    "heart_rate": 88.5,
-    "body_temperature": 37.4,
-    "recovery_score": 45.2,
-    "fatigue_index": 71.3,
-    "training_load": 920.0,
-    "..."  : "... all feature columns from model_schema.json"
-  }
-}
-```
-
-**Response:**
-```json
-{
-  "athlete_id": 1,
-  "risk_class": 2,
-  "risk_label": "Injured",
-  "confidence": {
-    "Healthy": 0.08,
-    "Low Risk": 0.17,
-    "Injured": 0.75
-  },
-  "acwr": 1.63,
-  "top_risk_factors": ["recovery_score", "fatigue_index", "acwr"]
-}
-```
-
-#### `GET /athletes`
-Returns all 156 athletes with their latest session's risk status.
-
-**Response:** Array of athlete summary objects with id, name, sport, risk_class,
-risk_label, latest_session_id.
-
-#### `GET /athlete/{athlete_id}`
-Full profile for one athlete: demographics, sport, all-time injury history summary.
-
-#### `GET /athlete/{athlete_id}/history`
-All sessions for an athlete with risk scores and key metrics. Used to render the
-timeline chart on the athlete profile page.
-
----
-
-## 9. Frontend
-
-### Pages
-
-**Squad Dashboard (`/`)**
-- Grid/list of all 156 athletes
-- Color-coded risk badge per athlete (green / amber / red)
-- Filter by sport_type, risk level, gender
-- Click any athlete → navigate to their profile
-
-**Athlete Profile (`/athlete/:id`)**
-- Athlete demographics (age, BMI, sport, gender)
-- Current risk level — large, prominent risk gauge
-- Session history timeline chart (training_load, fatigue_index, recovery_score over
-  sessions, with injury events marked)
-- ACWR trend chart with danger zone (>1.5) highlighted
-- Top risk contributing features for latest session
-- Button to open the prediction form for a new session
-
-**Live Prediction (`/athlete/:id/predict`)**
-- Form pre-populated with the athlete's last known values
-- All feature inputs grouped by modality (Physiological, Biomechanical, etc.)
-- Submit → calls POST /predict → shows risk result with confidence breakdown
-- Animated risk gauge updating live
-
-### Design Direction
-
-- Dark theme — deep navy/charcoal background, not pure black
-- Accent: electric blue (#3B82F6) for primary actions, green/amber/red for risk states
-- Premium data-dense aesthetic — think Whoop, Catapult, or Bloomberg Terminal
-- Monospace font for numeric values, clean sans-serif for UI text
-- Recharts for all data visualizations — consistent color palette throughout
-
----
-
-## 10. Setup & Running the Project
+## Setup & Running
 
 ### Prerequisites
-- Python 3.12
-- uv (Python package manager)
-- Node.js 18+
-- npm or yarn
 
-### ML / Notebook Setup
+- Python 3.12
+- [uv](https://docs.astral.sh/uv/) (Python package manager)
+- Node.js 18+
+- Notebooks 01, 02 and 03 must be run before starting the backend (they generate model artifacts)
+
+### 1. Python Environment
 
 ```bash
-# Clone the repo
 git clone https://github.com/AZTR3K/Fortis
 cd fortis
 
@@ -474,19 +380,21 @@ uv run python -m ipykernel install --user --name=fortis --display-name "FORTIS (
 uv run jupyter lab
 ```
 
-Run notebooks in order: 01 → 02 → 03.
+Run notebooks in order: `01_eda.ipynb` → `02_preprocessing.ipynb` → `03_model.ipynb`
 
-### Backend Setup
+### 2. Backend
 
 ```bash
-cd backend
-pip install -r requirements.txt
-uvicorn main:app --reload --port 8000
+# From the project root
+uv add fastapi uvicorn joblib tensorflow
+
+# Start the server
+uv run uvicorn backend.main:app --reload --port 8000
 ```
 
-API docs available at `http://localhost:8000/docs` (FastAPI auto-generates Swagger UI).
+API docs (auto-generated Swagger UI): [http://localhost:8000/docs](http://localhost:8000/docs)
 
-### Frontend Setup
+### 3. Frontend
 
 ```bash
 cd frontend
@@ -494,55 +402,185 @@ npm install
 npm run dev
 ```
 
-Frontend runs at `http://localhost:5173` by default.
+Frontend: [http://localhost:5173](http://localhost:5173)
+
+The Vite dev server proxies all `/api/*` requests to `http://localhost:8000` — no CORS issues in development.
+
+> Both the backend and frontend must be running simultaneously for the app to work.
 
 ---
 
-## 11. Notebook Guide
+## API Reference
 
-### 01_eda.ipynb — Exploratory Data Analysis
-**Kernel:** FORTIS (3.12)
-**Purpose:** Understand the dataset, identify patterns, validate assumptions.
-**Key outputs:** feature_groups.json, EDA visualizations, summary findings.
-**Run time:** ~2 minutes
-
-### 02_preprocessing.ipynb — Feature Engineering & Preprocessing Pipeline
-**Kernel:** FORTIS (3.12)
-**Purpose:** Transform raw data into clean, model-ready arrays.
-**Key outputs:** processed_data.npz, knn_imputer.joblib, standard_scaler.joblib,
-model_schema.json
-**Run time:** ~5 minutes (KNN imputation is the slow step)
-
-### 03_model.ipynb — ANN Design, Training & Evaluation
-**Kernel:** FORTIS (3.12)
-**Purpose:** Build, train, evaluate, and save the FORTIS ANN.
-**Key outputs:** fortis_ann.keras, evaluation metrics, baseline comparisons.
-**Run time:** ~10–20 minutes with GPU
+**Base URL:** `http://localhost:8000`
+**Interactive docs:** `http://localhost:8000/docs`
 
 ---
 
-## 12. Presentation Story
+### `GET /`
+Health check.
 
-The narrative arc for the presentation:
+**Response:**
+```json
+{ "status": "ok", "model": "FORTIS ANN", "version": "1.0.0" }
+```
 
-1. **The Problem** — Show a real stat: ~30% of professional athletes sustain a
-   non-contact injury per season. Most are preventable with better workload management.
+---
 
-2. **The Data** — 156 athletes, 6 months, 4 sensor modalities. Show the EDA highlight:
-   the longitudinal plot where training_load spikes and recovery crashes before a Class 2
-   injury event. This is the "aha" moment.
+### `GET /athletes`
+Returns all 156 athletes with their latest session's risk status (from the raw dataset).
 
-3. **The Challenge** — 4.26:1 class imbalance. Environmental features are noisy.
-   Static readings miss temporal patterns. Walk through how each decision (rolling
-   features, SMOTE, KNN imputation) solves a specific real problem.
+**Response:** Array of `AthleteOverview` objects.
 
-4. **The Model** — ANN architecture diagram. Training curves (loss and accuracy).
-   Confusion matrix. F1-macro vs baselines. Lead with the Injured class F1 score —
-   that's what matters clinically.
+```json
+[
+  {
+    "athlete_id": 1,
+    "sport_type": "Basketball",
+    "gender": "Female",
+    "age": 18.0,
+    "latest_risk_class": 0,
+    "latest_risk_label": "Healthy",
+    "latest_session_id": 99
+  }
+]
+```
 
-5. **The Product** — Live demo of FORTIS. Open the squad dashboard, click a high-risk
-   athlete, submit a new session prediction. Show the risk gauge update in real time.
+---
 
-6. **The Impact** — One prevented injury = weeks of recovery saved, cost avoided,
-   career protected. Frame the output not as a prediction but as an actionable alert
-   that gives medical staff time to intervene.
+### `GET /athlete/{athlete_id}`
+Full profile for one athlete — demographics and latest risk from the dataset.
+
+**Response:** Single `AthleteOverview` object.
+
+---
+
+### `GET /athlete/{athlete_id}/history`
+All sessions for one athlete with key metrics. Used to render the session timeline and ACWR chart.
+
+**Response:** Array of `AthleteSession` objects.
+
+```json
+[
+  {
+    "session_id": 1,
+    "risk_class": 0,
+    "risk_label": "Healthy",
+    "confidence": {},
+    "training_load": 712.4,
+    "fatigue_index": 38.2,
+    "recovery_score": 74.1,
+    "acwr": 0.0
+  }
+]
+```
+
+---
+
+### `POST /predict`
+Run a live inference for a specific athlete. The server computes rolling features from session history and runs the ANN.
+
+**Request body:**
+```json
+{
+  "athlete_id": 1,
+  "session_data": {
+    "heart_rate": 95.0,
+    "body_temperature": 37.8,
+    "hydration_level": 62.0,
+    "sleep_quality": 4.5,
+    "recovery_score": 38.0,
+    "stress_level": 0.78,
+    "muscle_activity": 420.0,
+    "joint_angles": 142.0,
+    "gait_speed": 2.1,
+    "cadence": 148.0,
+    "step_count": 9800,
+    "jump_height": 0.42,
+    "ground_reaction_force": 1850.0,
+    "range_of_motion": 118.0,
+    "ambient_temperature": 28.0,
+    "humidity": 65.0,
+    "altitude": 120.0,
+    "playing_surface": 2,
+    "training_intensity": 7.5,
+    "training_duration": 95.0,
+    "training_load": 712.0,
+    "fatigue_index": 68.0,
+    "sport_type": "Soccer",
+    "gender": "Male",
+    "age": 26,
+    "bmi": 23.4
+  },
+  "history": []
+}
+```
+
+All sensor fields are `Optional[float]` — missing values are handled by the KNN imputer. `sport_type` and `gender` are required.
+
+`history` is an array of prior `SessionData` objects. Include the last 7 sessions for meaningful ACWR computation. When empty, ACWR defaults to 1.0.
+
+**Response:**
+```json
+{
+  "athlete_id": 1,
+  "risk_class": 1,
+  "risk_label": "Injured",
+  "confidence": {
+    "Healthy": 0.4325,
+    "Injured": 0.5675
+  },
+  "acwr": 1.63,
+  "top_risk_features": ["cadence", "stress_level", "recovery_roll7"]
+}
+```
+
+`top_risk_features` — the 3 features with the highest absolute scaled values post-StandardScaler. Computed after scaling so all features are on the same scale.
+
+---
+
+## Frontend
+
+### Pages
+
+| Page | Route | Description |
+|---|---|---|
+| Squad Dashboard | `/` | All 156 athletes as cards with hero stats, sport-color coding, risk badges, ACWR display, filter and search |
+| Athlete Profile | `/athlete/:id` | Session timeline chart, ACWR trend, risk gauge, top risk factors, stat cards |
+| Live Prediction | `/athlete/:id/predict` | Sensor input form pre-populated from last session, live inference result with confidence breakdown and alert |
+
+### Design System
+
+- **Theme:** Deep navy dark (`#080d1a` base, `#0d1526` surfaces)
+- **Accent:** Electric blue `#3b82f6`
+- **Risk states:** `#10b981` Healthy · `#ef4444` Injured · `#f59e0b` ACWR warning
+- **Typography:** Inter (UI) · JetBrains Mono (all numeric values)
+- **Animation:** `fadeUp`, `fadeIn`, `scaleIn` entrance animations with staggered delays · hover lift on cards · arc draw on gauge · pulse ring on Injured badges
+- **Card design:** Sport-color top stripe · risk-tinted background for injured athletes · hover elevation with box shadow
+
+---
+
+## Notebook Guide
+
+| Notebook | Kernel | Purpose | Key outputs |
+|---|---|---|---|
+| `01_eda.ipynb` | FORTIS (3.12) | Dataset exploration, correlation analysis, temporal plots, class imbalance audit | `feature_groups.json`, EDA visualizations |
+| `02_preprocessing.ipynb` | FORTIS (3.12) | Full preprocessing pipeline — binary remap, rolling features, encoding, split, impute, scale | `processed_data.npz`, `knn_imputer.joblib`, `standard_scaler.joblib`, `model_schema.json` |
+| `03_model.ipynb` | FORTIS (3.12) | ANN architecture, training, evaluation, baseline comparison | `fortis_ann.keras`, training curves, confusion matrix, classification report |
+
+---
+
+## Modelling Decision Log
+
+Three pivots made during development — each documented with root cause analysis:
+
+| # | Problem | Root Cause | Resolution |
+|---|---|---|---|
+| 01 | SMOTE validation illusion — 98.9% val_accuracy, 0.4965 test F1 | Model learned synthetic interpolated distributions, not real boundaries | Removed SMOTE entirely |
+| 02 | Low Risk class collapse — no improvement after removing SMOTE | Healthy and Low Risk are indistinguishable in feature space (confirmed by KDE) | Collapsed Low Risk → Healthy, binary reformulation |
+| 03 | ANN macro F1 (0.70) trails Logistic Regression (0.72) | class_weight='balanced' trades precision for recall | Accepted — Injured recall 0.882 is the clinically correct metric to optimise |
+
+---
+
+*Built with TensorFlow · FastAPI · React · Keras · scikit-learn*
+*Dataset: CC BY-NC-SA 4.0 — Anjali Bhegam et al., 2025*
